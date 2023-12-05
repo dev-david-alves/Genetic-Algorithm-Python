@@ -1,4 +1,4 @@
-from random import choices, randint, randrange, random, sample
+from random import choices, randint, randrange, random
 
 # r1: É necessário haver no mínimo 1 enfermeiro e no máximo 3 enfermeiros em cada turno.
 def r1(genome, min, max):
@@ -23,31 +23,36 @@ def r2(genome, numTurn):
 
 
 # r3: Nenhum enfermeiro pode trabalhar mais que 3 dias seguidos sem folga.
-def r3(genome, max, turnByDay):
+def r3(genome, r3MaxConsecWorkDays):
+  turnByDay = int(len(genome[0]) / 7)
   fault = 0
   for i in range(len(genome)):
     for j in range(0, len(genome[0]), turnByDay):
       sumDays = 0
-      for r in range(min(max + 1, len(genome[0]))):
+      for r in range(min(r3MaxConsecWorkDays + 1, len(genome[0]))):
         sumDays += int(sum(genome[i][j + turnByDay * r:j + turnByDay * (r + 1)]) >= 1)
       
-        if sumDays > max:
+        if sumDays > r3MaxConsecWorkDays:
           fault += 1
           break
       
-      if sumDays > max: 
+      if sumDays > r3MaxConsecWorkDays: 
           break
 
   return -fault
 
 
 # r4: Enfermeiros preferem consistência em seus horários, ou seja, eles preferem trabalhar todos os dias da semana no mesmo turno (dia, noite, ou madrugada).
-def r4(genome, turnByDay):
+def r4(genome):
+  turnByDay = int(len(genome[0]) / 7)
   fault = 0
   for j in range(len(genome)):
+    # 0, 3, 6, 9, 12, 15, 18
+    # 1, 4, 7, 10, 13, 16, 19
+    # 2, 5, 8, 11, 14, 17, 20
     day = int(sum([genome[j][i] for i in range(0, len(genome[0]), turnByDay)]) >= 1)
-    night = int(sum([genome[j][i + 1] for i in range(0, len(genome[0]), turnByDay)]) >= 1)
-    dawn = int(sum([genome[j][i + 2] for i in range(0, len(genome[0]), turnByDay)]) >= 1)
+    night = int(sum([genome[j][i] for i in range(1, len(genome[0]), turnByDay)]) >= 1)
+    dawn = int(sum([genome[j][i] for i in range(2, len(genome[0]), turnByDay)]) >= 1)
 
     fault += int((day + night + dawn) > 1)
 
@@ -121,11 +126,11 @@ def mutation(genome, mutationRatio):
     return convertSingleLineToMatrix(genomeL, len(genome[0]))
 
 
-def fitness(genome, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay):
+def fitness(genome, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays):
     r1C = r1(genome, r1Min, r1Max)
     r2C = r2(genome, r2NumTurn)
-    r3C = r3(genome, r3MaxConsecWorkDays, turnByDay)
-    r4C = r4(genome, turnByDay)
+    r3C = r3(genome, r3MaxConsecWorkDays)
+    r4C = r4(genome)
 
     return r1C + r2C + r3C + r4C
 
@@ -142,13 +147,13 @@ def tournament_selection(population, scores, k = 15):
   return population[selection_ix]
 
 
-def population_fitness(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay):
-    return sum([fitness(genome, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay) for genome in population])
+def population_fitness(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays):
+    return sum([fitness(genome, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays) for genome in population])
 
 
-def sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay):
-    return sorted(population, key=lambda genome: fitness(genome, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay), reverse=True)
-################################################
+def sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays):
+    return sorted(population, key=lambda genome: fitness(genome, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays), reverse=True)
+
 
 def genome_to_string(genome):
     strComb = ""
@@ -158,28 +163,31 @@ def genome_to_string(genome):
     return strComb
 
 
-def print_stats(population, generation_id, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay):
+def print_stats(population, generation_id, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays):
     print("GERAÇÃO %02d" % generation_id)
     print("=============")
-    print("Média de Fitness: %f" % (population_fitness(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay) / len(population)))
+    print("Média de Fitness: %f" % (population_fitness(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays) / len(population)))
 
-    sorted_population = sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay)
+    sorted_population = sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
 
-    print("Melhor: %s \nFitness: %d" % (genome_to_string(sorted_population[0]), fitness(sorted_population[0], r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay)))
+    print("Melhor: %s" % genome_to_string(sorted_population[0]))
+    print("R1: %d" % r1(sorted_population[0], r1Min, r1Max))
+    print("R2: %d" % r2(sorted_population[0], r2NumTurn))
+    print("R3: %d" % r3(sorted_population[0], r3MaxConsecWorkDays))
+    print("R4: %d" % r4(sorted_population[0]))
+    print("Fitness total: %d" % fitness(sorted_population[0], r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays))
 
     return sorted_population[0]
 
 
-def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay, popSize, maxInter, elitism_ratio, mutation_ratio):
-    
-
+def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio):
     population = generate_population(k, n, popSize)
 
     bestFitness = float("-inf")
     bestPopulation = population.copy()
 
     for i in range(maxInter):
-        scores = [fitness(p, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay) for p in population]
+        scores = [fitness(p, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays) for p in population]
         selected = [tournament_selection(population, scores) for _ in range(popSize)]
 
         next_generation = []
@@ -187,7 +195,7 @@ def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay,
         canSubtract = False
         if random() < elitism_ratio:
           canSubtract = True
-          next_generation = sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay)[0:2]
+          next_generation = sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)[0:2]
 
         for j in range(2 if canSubtract else 0, len(population), 2):
             parentA, parentB = selected[j], selected[j + 1]
@@ -197,23 +205,22 @@ def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay,
             offspring_b = mutation(offspring_b, mutation_ratio)
             next_generation += [offspring_a, offspring_b]
 
-        next_generation = sort_population(next_generation, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay)
-        bestFitnessNextGen = fitness(next_generation[0], r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay)
+        next_generation = sort_population(next_generation, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
+        bestFitnessNextGen = fitness(next_generation[0], r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
 
         if(bestFitnessNextGen > bestFitness):
            bestFitness = bestFitnessNextGen
            bestPopulation = next_generation
 
         population = next_generation
-        print(f"N° {i + 1} de {maxInter} e fitness: {bestFitness}, tamanho: {len(next_generation)}")
+        print(f"N° {i + 1} de {maxInter} e fitness: {bestFitness}")
 
     return bestPopulation, i
 
 
 if __name__ == "__main__":
   k = 10
-  turnByDay = 3
-  n = turnByDay * 7
+  n = 21
   popSize = 100
   maxInter = 1000
   elitism_ratio = 0.1
@@ -226,7 +233,17 @@ if __name__ == "__main__":
   r3MaxConsecWorkDays = 3
 
   # Função de resolução
-  population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay, popSize, maxInter, elitism_ratio, mutation_ratio)
+  population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
 
   print("###### Melhor população ######")
-  print_stats(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, turnByDay)
+  print_stats(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
+
+  # genome = generate_genome(numEnf=5, n=7)
+  
+  # for g in genome:
+  #    print(g)
+
+  # print(r1(genome, 1, 3))
+  # print(r2(genome, 5))
+  # print(r3(genome, 3))
+  # print(r4(genome))
