@@ -1,4 +1,5 @@
 import os
+import matplotlib.pyplot as plt
 from random import choices, randint, randrange, random
 
 # r1: É necessário haver no mínimo 1 enfermeiro e no máximo 3 enfermeiros em cada turno.
@@ -274,12 +275,26 @@ def experimentation_01():
 
   elitism_list = [0, 0.1, 0.25, 0.5, 0.75]
 
+  # Dicionário para armazenar os resultados
+  results = {elitism_ratio: [] for elitism_ratio in elitism_list}
+
   clear_log("bloco01")
   for nExecucao in range(1, 11):
     for elitism_ratio in elitism_list:
       population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
       log_execution_final(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, "bloco01", nExecucao)
+      # Armazenar o resultado
+      results[elitism_ratio].append(i)
   
+  # Plotar os resultados
+  medias = [sum(results[elitism_ratio]) / len(results[elitism_ratio]) for elitism_ratio in elitism_list]
+
+  plt.plot(elitism_list, medias, marker='o')
+  plt.xlabel("Taxa de elitismo")
+  plt.ylabel("Média de interações")
+  plt.title("Média do número de interações necessárias para encontrar a solução por taxa de elitismo")
+  plt.show()
+
 def experimentation_02():
   k = 10
   n = 21
@@ -297,12 +312,25 @@ def experimentation_02():
 
   popSizeList = [10, 25, 50, 100, 500, 1000]
 
+  # Dicionário para armazenar os resultados
+  results = {popSize: [] for popSize in popSizeList}
+
   clear_log("bloco02")
   for nExecucao in range(1, 11):
     for popSize in popSizeList:
       population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
       log_execution_final(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, "bloco02", nExecucao)
+      # Armazenar o resultado
+      results[popSize].append(i)
+  
+  # Plotar os resultados
+  medias = [sum(results[popSize]) / len(results[popSize]) for popSize in popSizeList]
 
+  plt.plot(popSizeList, medias, marker='o')
+  plt.xlabel("Tamanho da população")
+  plt.ylabel("Média de interações")
+  plt.title("Média do número de interações necessárias para encontrar a solução por tamanho da população")
+  plt.show()
 
 if __name__ == "__main__":
   print("AT3: Algoritmos Genéticos\n")
