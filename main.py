@@ -1,3 +1,5 @@
+import os
+import matplotlib.pyplot as plt
 from random import choices, randint, randrange, random
 
 # r1: É necessário haver no mínimo 1 enfermeiro e no máximo 3 enfermeiros em cada turno.
@@ -162,7 +164,6 @@ def genome_to_string(genome):
     strComb += "\n"
     return strComb
 
-
 def print_stats(population, generation_id, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays):
     print("GERAÇÃO %02d" % generation_id)
     print("=============")
@@ -185,6 +186,7 @@ def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, m
 
     bestFitness = float("-inf")
     bestPopulation = population.copy()
+    bestGeneration = 0
 
     for i in range(maxInter):
         scores = [fitness(p, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays) for p in population]
@@ -197,7 +199,8 @@ def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, m
           canSubtract = True
           next_generation = sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)[0:2]
 
-        for j in range(2 if canSubtract else 0, len(population), 2):
+        populationLen = len(population)
+        for j in range(2 if canSubtract else 0, populationLen if populationLen % 2 == 0 else (populationLen - 1), 2):
             parentA, parentB = selected[j], selected[j + 1]
 
             offspring_a, offspring_b = crossover(parentA, parentB)
@@ -211,39 +214,156 @@ def run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, m
         if(bestFitnessNextGen > bestFitness):
            bestFitness = bestFitnessNextGen
            bestPopulation = next_generation
+           bestGeneration = i + 1
 
         population = next_generation
         print(f"N° {i + 1} de {maxInter} e fitness: {bestFitness}")
 
-    return bestPopulation, i
+    return bestPopulation, bestGeneration
 
 
-if __name__ == "__main__":
+# Métodos para experimentos -----------------------------------------------
+def clear_log(folderName):
+  folderPath = os.path.join("resultadoExperimentacao", folderName)
+  logFilePath = os.path.join(folderPath, "log.txt")
+
+  with open(logFilePath, "w") as logFile:
+    logFile.write("")
+    logFile.close()
+
+def log_execution_final(population, generation_id, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, folderName, nExecucao):
+  print_stats(population, generation_id, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
+  folderPath = os.path.join("resultadoExperimentacao", folderName)
+
+  if not os.path.exists(folderPath):
+    os.makedirs(folderPath)
+  
+  logFilePath = os.path.join(folderPath, "log.txt")
+
+  with open(logFilePath, "a") as logFile:
+    logFile.write(f"EXECUCAO {nExecucao}\n")
+    logFile.write(f"GERACAO {generation_id}\n")
+    logFile.write("=============\n")
+    logFile.write("Media de Fitness: %f\n" % (population_fitness(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays) / len(population)))
+    
+    sorted_population = sort_population(population, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
+    
+    logFile.write("Melhor: %s\n" % genome_to_string(sorted_population[0]))
+    logFile.write("R1: %d\n" % r1(sorted_population[0], r1Min, r1Max))
+    logFile.write("R2: %d\n" % r2(sorted_population[0], r2NumTurn))
+    logFile.write("R3: %d\n" % r3(sorted_population[0], r3MaxConsecWorkDays))
+    logFile.write("R4: %d\n" % r4(sorted_population[0]))
+    logFile.write("Fitness total: %d\n" % fitness(sorted_population[0], r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays))
+    logFile.write("\n\n")
+    logFile.close()
+
+# Experimentação -----------------------------------------------
+def experimentation_01():
   k = 10
   n = 21
-  popSize = 100
-  maxInter = 1000
-  elitism_ratio = 0.1
-  mutation_ratio = 0.1
-  
+
   # Parâmetros referentes somente aos requisitos
   r1Min = 1
   r1Max = 3
   r2NumTurn = 5
   r3MaxConsecWorkDays = 3
 
-  # Função de resolução
-  population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
+  # Demais parâmetros
+  popSize = 100
+  maxInter = 1000
+  mutation_ratio = 0.1
 
-  print("###### Melhor população ######")
-  print_stats(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
+  elitism_list = [0, 0.1, 0.25, 0.5, 0.75]
 
-  # genome = generate_genome(numEnf=5, n=7)
+  # Dicionário para armazenar os resultados
+  results = {elitism_ratio: [] for elitism_ratio in elitism_list}
+
+  clear_log("bloco01")
+  for nExecucao in range(1, 11):
+    for elitism_ratio in elitism_list:
+      population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
+      log_execution_final(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, "bloco01", nExecucao)
+      # Armazenar o resultado
+      results[elitism_ratio].append(i)
   
-  # for g in genome:
-  #    print(g)
+  # Plotar os resultados
+  medias = [sum(results[elitism_ratio]) / len(results[elitism_ratio]) for elitism_ratio in elitism_list]
 
-  # print(r1(genome, 1, 3))
-  # print(r2(genome, 5))
-  # print(r3(genome, 3))
-  # print(r4(genome))
+  plt.plot(elitism_list, medias, marker='o')
+  plt.xlabel("Taxa de elitismo")
+  plt.ylabel("Média de interações")
+  plt.title("Média do número de interações necessárias para encontrar a solução por taxa de elitismo")
+  plt.show()
+
+def experimentation_02():
+  k = 10
+  n = 21
+
+  # Parâmetros referentes somente aos requisitos
+  r1Min = 1
+  r1Max = 3
+  r2NumTurn = 5
+  r3MaxConsecWorkDays = 3
+
+  # Demais parâmetros
+  maxInter = 1000
+  mutation_ratio = 0.1
+  elitism_ratio = 0.1
+
+  popSizeList = [10, 25, 50, 100, 500, 1000]
+
+  # Dicionário para armazenar os resultados
+  results = {popSize: [] for popSize in popSizeList}
+
+  clear_log("bloco02")
+  for nExecucao in range(1, 11):
+    for popSize in popSizeList:
+      population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
+      log_execution_final(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, "bloco02", nExecucao)
+      # Armazenar o resultado
+      results[popSize].append(i)
+  
+  # Plotar os resultados
+  medias = [sum(results[popSize]) / len(results[popSize]) for popSize in popSizeList]
+
+  plt.plot(popSizeList, medias, marker='o')
+  plt.xlabel("Tamanho da população")
+  plt.ylabel("Média de interações")
+  plt.title("Média do número de interações necessárias para encontrar a solução por tamanho da população")
+  plt.show()
+
+if __name__ == "__main__":
+  print("AT3: Algoritmos Genéticos\n")
+
+  # Execução 
+  executar_testes = input("Tecle '1' para executar as simulações de teste ou '2' para a execução padrão do programa: ").lower() == '1'
+
+  if not executar_testes:  
+    # k enfermeiros e n turnos
+    k = 10
+    n = 21
+
+    # Solicitar valores ao usuário para os parâmetros desejados
+    popSize = int(input("Digite o tamanho da população: "))
+    maxInter = int(input("Digite o número de gerações (interações): "))
+    elitism_ratio = float(input("Digite a taxa de elitismo: "))
+    mutation_ratio = float(input("Digite a taxa de mutação: "))
+    
+    # Parâmetros referentes somente aos requisitos
+    r1Min = 1
+    r1Max = 3
+    r2NumTurn = 5
+    r3MaxConsecWorkDays = 3
+
+    # Função de resolução
+    population, i = run_evolution(k, n, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays, popSize, maxInter, elitism_ratio, mutation_ratio)
+
+    print("###### Melhor população ######")
+    print_stats(population, i, r1Min, r1Max, r2NumTurn, r3MaxConsecWorkDays)
+  else:
+    # Experimentação
+    teste = input("Tecle '1' para executar a experimentação 01 ou '2' para executar a experimentação 02: ")
+    if teste.lower() == '1':
+      experimentation_01()
+    elif teste.lower() == '2':
+      experimentation_02()
